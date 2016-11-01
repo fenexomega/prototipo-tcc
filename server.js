@@ -1,46 +1,48 @@
 var http = require('http')
 var serialport = require('serialport')
 var serialPorts = [];
+//Minha porta usb
 var port = new serialport('/dev/ttyUSB0');
 var fs = require('fs');
 
-port.on('open',function(){
-
-});
-
-serialport.list(function (err, ports){
-ports.forEach(function(port){
-  serialPorts.push(port.comName);
-});
-});
-
-function handleRequest(request,response)
+function getMapFromData(data)
 {
-  var index = fs.readFileSync('index.html');
-  var map = new Map();
-  console.log(request.method);
-  if(request.method === 'POST')
-  {
-    request.on('data',function(data){
-      console.log(data);
+	  var map = new Map();
       var args = data.toString('utf8').split('=');
       for(var i = 0; i < args.length; i += 2)
       {
         map.set(args[i],args[i + 1]);
       }
-      if(map.get('value') != null)
-      {
-        port.write(map.get('value') + ' ');
-      }
-    });
-
-  }
-  response.writeHead(200, {'Content-Type': 'text/html'});
-  response.end(index);
-
+	  return map;
 
 }
 
+function handleRequest(request,response)
+{
+	// Ler o arquivo html
+  var index = fs.readFileSync('index.html');
+	// Se o método for POST
+  if(request.method === 'POST')
+  {
+	  // Callback para pegar o payload da requisição
+    request.on('data',function(data)
+	{
+		//Transforma a string em um mapa
+		var map = getMapFromData(data);		
+		if(map.get('value') != null)
+		{
+			//manda o valor via serial para o arduino
+			port.write(map.get('value') + ' ');
+		}
+	});
+  }
+	//Escreve o cabeçalho e envia o arquivo .html para o navegador
+  response.writeHead(200, {'Content-Type': 'text/html'});
+  response.end(index);
+
+}
+
+//Auto explicativo
 var server = http.createServer(handleRequest);
 
 server.listen(8000);
